@@ -183,13 +183,13 @@ struct LiquidTodayView: View {
     /// Content sits above the surface so it stays readable. Mirrors Kotlin `NoopPrefs.cardOpacityPercent`.
     @AppStorage(CardAppearancePrefs.opacityKey) private var cardOpacityPercent = CardAppearancePrefs.defaultPercent
     private var cardOpacity: Double { max(0, min(1, Double(cardOpacityPercent) / 100)) }
-    /// "Sky behind cards" (default ON): extend the day-cycle sky behind the WHOLE scroll so the
+    /// "Sky behind cards": extend the day-cycle sky behind the WHOLE scroll so the
     /// Card-transparency slider reveals it under every card. User-toggleable. Mirrors Kotlin `NoopPrefs.skyBehindCards`.
-    @AppStorage(SkyBehindCardsPrefs.enabledKey) private var skyBehindCards = true
-    /// Day-cycle scene backdrop (#698). Default ON. When off, the liquid Today drops the sky for the plain
+    @AppStorage(SkyBehindCardsPrefs.enabledKey) private var skyBehindCards = SkyBehindCardsPrefs.defaultEnabled
+    /// Day-cycle scene backdrop (#698). When off, the liquid Today drops the sky for the plain
     /// dark canvas — parity with Android and the classic TodayView, which already honour this pref. Mirrors
     /// Kotlin `NoopPrefs.showDayCycleBackground`.
-    @AppStorage(SceneBackgroundPrefs.enabledKey) private var showDayCycleBackground = true
+    @AppStorage(SceneBackgroundPrefs.enabledKey) private var showDayCycleBackground = SceneBackgroundPrefs.defaultEnabled
     /// Custom background image (#custom-background): when active it overrides the sky in the backdrop below.
     @ObservedObject private var backgroundStore = BackgroundImageStore.shared
 
@@ -570,7 +570,7 @@ struct LiquidTodayView: View {
                 Button { showDayPicker = true } label: {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(dayTitle)
-                            .font(StrandFont.rounded(28))
+                            .font(StrandFont.title1)
                             .foregroundStyle(StrandPalette.textPrimary)
                             .shadow(color: .black.opacity(0.4), radius: 10, y: 1)
                         Text(dateLine)
@@ -654,9 +654,15 @@ struct LiquidTodayView: View {
             // #today-layout: the hero + Start-session row moved OUT of the scene into the reorderable
             // section block below. The wordmark's bottom pad (10) + the section VStack's 12 spacing keeps
             // the default hero-under-wordmark gap at the original 22.
+            #if os(iOS)
+            LiquidWordmark()
+                .padding(.top, 12)
+                .padding(.bottom, 2)
+            #else
             LiquidWordmark()
                 .padding(.top, 30)
                 .padding(.bottom, 10)
+            #endif
         }
     }
 
@@ -696,40 +702,50 @@ struct LiquidTodayView: View {
     }
 
     private var heroCard: some View {
-        HStack(alignment: .top, spacing: 4) {
-            // #543 carry: an unscored today shows the last scored night's REAL Charge (labelled as prior by
-            // the state pill) rather than an empty vessel, matching the classic Today, the widget/watch/Live
-            // Activity (`Repository.widgetAnchor`) and Android. Effort deliberately does NOT carry — it is
-            // today's own accumulation, so yesterday's number would be a false statement, not a stale one.
-            HeroScoreCell(label: String(localized: "Charge"), score: chargeDisplay.pct,
-                          tint: chargeDisplay.pct.map { StrandPalette.recoveryColor($0) } ?? StrandPalette.chargeColor,
-                          animated: dataLoaded, onGuide: { guideSection = .charge },
-                          detailRoute: .metric(HeroRingMetric.charge))
-            // #45: the hero Effort must honour the user's Effort scale like every other Effort read-out.
-            // Show the value on the chosen scale (0–100 or WHOOP 0–21) with the matching vessel max, and
-            // one decimal on the compressed 0–21 axis to match the app-wide `effortDisplay` convention
-            // (12.6, not a rounded "13"); the 0–100 hero stays a whole number as before.
-            HeroScoreCell(label: String(localized: "Effort"),
-                          score: effortStrain(displayDay).map { UnitFormatter.effortValue($0, scale: effortScale) },
-                          tint: StrandPalette.effortColor, animated: dataLoaded,
-                          onGuide: { guideSection = .effort },
-                          maxValue: effortScale == .whoop ? 21 : 100,
-                          decimals: effortScale == .whoop ? 1 : 0,
-                          detailRoute: .metric(HeroRingMetric.effort))
-            HeroScoreCell(label: String(localized: "Rest"), score: restScore, tint: StrandPalette.restColor,
-                          animated: dataLoaded, onGuide: { guideSection = .rest },
-                          detailRoute: .metric(HeroRingMetric.rest))
-                .overlay(alignment: .top) {
-                    if let sourceLabel = heroSourceLabel {
-                        SourceBadge("\(sourceLabel)", tint: StrandPalette.textSecondary)
-                            // Match the badge's trailing edge to the Rest vessel and centre it on the card border.
-                            .fixedSize()
-                            .frame(width: HeroScoreCell.vesselDiameter, alignment: .trailing)
-                            .offset(y: -(NoopMetrics.space4 + NoopMetrics.sourceBadgeHeight / 2))
-                            .allowsHitTesting(false)
-                            .accessibilityLabel(Text("Source: \(sourceLabel)"))
+        VStack(alignment: .leading, spacing: 10) {
+            #if os(iOS)
+            Text("Daily performance")
+                .font(StrandFont.overline)
+                .tracking(1.4)
+                .textCase(.uppercase)
+                .foregroundStyle(StrandPalette.textSecondary)
+                .padding(.horizontal, 6)
+            #endif
+            HStack(alignment: .top, spacing: 4) {
+                // #543 carry: an unscored today shows the last scored night's REAL Charge (labelled as prior by
+                // the state pill) rather than an empty vessel, matching the classic Today, the widget/watch/Live
+                // Activity (`Repository.widgetAnchor`) and Android. Effort deliberately does NOT carry — it is
+                // today's own accumulation, so yesterday's number would be a false statement, not a stale one.
+                HeroScoreCell(label: String(localized: "Charge"), score: chargeDisplay.pct,
+                              tint: chargeDisplay.pct.map { StrandPalette.recoveryColor($0) } ?? StrandPalette.chargeColor,
+                              animated: dataLoaded, onGuide: { guideSection = .charge },
+                              detailRoute: .metric(HeroRingMetric.charge))
+                // #45: the hero Effort must honour the user's Effort scale like every other Effort read-out.
+                // Show the value on the chosen scale (0–100 or WHOOP 0–21) with the matching vessel max, and
+                // one decimal on the compressed 0–21 axis to match the app-wide `effortDisplay` convention
+                // (12.6, not a rounded "13"); the 0–100 hero stays a whole number as before.
+                HeroScoreCell(label: String(localized: "Effort"),
+                              score: effortStrain(displayDay).map { UnitFormatter.effortValue($0, scale: effortScale) },
+                              tint: StrandPalette.effortColor, animated: dataLoaded,
+                              onGuide: { guideSection = .effort },
+                              maxValue: effortScale == .whoop ? 21 : 100,
+                              decimals: effortScale == .whoop ? 1 : 0,
+                              detailRoute: .metric(HeroRingMetric.effort))
+                HeroScoreCell(label: String(localized: "Rest"), score: restScore, tint: StrandPalette.restColor,
+                              animated: dataLoaded, onGuide: { guideSection = .rest },
+                              detailRoute: .metric(HeroRingMetric.rest))
+                    .overlay(alignment: .top) {
+                        if let sourceLabel = heroSourceLabel {
+                            SourceBadge("\(sourceLabel)", tint: StrandPalette.textSecondary)
+                                // Match the badge's trailing edge to the Rest vessel and centre it on the card border.
+                                .fixedSize()
+                                .frame(width: HeroScoreCell.vesselDiameter, alignment: .trailing)
+                                .offset(y: -(NoopMetrics.space4 + NoopMetrics.sourceBadgeHeight / 2))
+                                .allowsHitTesting(false)
+                                .accessibilityLabel(Text("Source: \(sourceLabel)"))
+                        }
                     }
-                }
+            }
         }
         .padding(.vertical, NoopMetrics.space4)
         .padding(.horizontal, NoopMetrics.space3)
@@ -768,8 +784,13 @@ struct LiquidTodayView: View {
     private var yourCardsSection: some View {
         VStack(spacing: 8) {
             HStack {
+                #if os(iOS)
+                Text("YOUR CARDS").font(StrandFont.headline).tracking(0.5)
+                    .foregroundStyle(StrandPalette.textPrimary)
+                #else
                 Text("YOUR CARDS").font(StrandFont.overline).tracking(1.6)
                     .foregroundStyle(StrandPalette.textTertiary)
+                #endif
                 Spacer()
                 Button { customizationDestination = .yourCards } label: {
                     // #492 item 4 parity: unify the Your Cards / Key Metrics edit affordance to "EDIT" across
@@ -1161,8 +1182,13 @@ struct LiquidTodayView: View {
     private var synthesisSection: some View {
         VStack(spacing: 8) {
             HStack {
+                #if os(iOS)
+                Text(greeting).font(StrandFont.headline).foregroundStyle(StrandPalette.textPrimary)
+                    .lineLimit(1).minimumScaleFactor(0.6)
+                #else
                 Text(greeting).font(StrandFont.rounded(19)).foregroundStyle(StrandPalette.textPrimary)
-                    .lineLimit(1).minimumScaleFactor(0.6)   // yield to the pills rather than push them to wrap
+                    .lineLimit(1).minimumScaleFactor(0.6)
+                #endif
                 Spacer(minLength: 8)
                 HStack(spacing: 8) {
                     if let word = readinessWord {
@@ -1607,7 +1633,12 @@ struct LiquidTodayView: View {
     /// Matches the Android twin, whose `SectionHeader` already takes `trailing: String? = null`.
     private func sectionHead(_ title: String, trailing: String? = nil) -> some View {
         HStack(alignment: .firstTextBaseline) {
+            #if os(iOS)
+            Text(LocalizedStringKey(title)).font(StrandFont.headline).tracking(0.5)
+                .foregroundStyle(StrandPalette.textPrimary)
+            #else
             Text(LocalizedStringKey(title)).font(StrandFont.overline).tracking(1.6).foregroundStyle(StrandPalette.textTertiary)
+            #endif
             Spacer()
             if let trailing {
                 Text(LocalizedStringKey(trailing)).font(StrandFont.caption).foregroundStyle(StrandPalette.textTertiary)
@@ -2531,7 +2562,7 @@ private struct LiquidLiveHR: View {
                         .accessibilityHidden(true)
                 }
                 if let hr = bigBpm {
-                    (Text("\(hr)").font(StrandFont.rounded(22)).monospacedDigit()
+                    (Text("\(hr)").font(StrandFont.number(22, weight: .bold)).monospacedDigit()
                         + Text(" bpm").font(StrandFont.caption))
                         .foregroundStyle(tint)
                         .contentTransition(.numericText())
