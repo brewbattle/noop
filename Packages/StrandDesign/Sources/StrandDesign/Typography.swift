@@ -7,8 +7,8 @@ import AppKit
 
 // MARK: - Strand Typography (§9.2)
 //
-// SF Rounded follows the supplied reference's friendly Apple-native geometry. Tabular digits keep live
-// metrics stable, while named text styles retain Dynamic Type scaling. SF Mono remains reserved for logs.
+// iPhone uses Manrope for clear geometric headings, copy, and metric values; the widget and the
+// other Apple platforms retain SF Rounded. Named styles keep Dynamic Type scaling.
 //
 // All numeric styles use `.monospacedDigit()` so live values don't reflow.
 
@@ -20,12 +20,25 @@ public enum StrandFont {
         .system(size: size, weight: weight, design: .rounded)
     }
 
+    #if os(iOS)
+    private static func manropeName(_ weight: Font.Weight) -> String {
+        if weight == .heavy || weight == .black { return "Manrope-ExtraBold" }
+        if weight == .bold { return "Manrope-Bold" }
+        if weight == .semibold { return "Manrope-SemiBold" }
+        if weight == .medium { return "Manrope-Medium" }
+        return "Manrope-Regular"
+    }
+    #endif
+
     // MARK: Scale (§9.2)
 
-    /// Display 64–80 / Bold — the gauge score number. Helvetica Neue 700 with tight
-    /// tracking (≈ -0.04em), tabular digits so a changing value never reflows.
+    /// Display 64–80 / Bold — the gauge score number, with tabular digits so a changing value never reflows.
     public static func display(_ size: CGFloat = 72) -> Font {
+        #if os(iOS)
+        Font.custom("Manrope-ExtraBold", size: size).monospacedDigit()
+        #else
         roundedSystem(size, weight: .bold).monospacedDigit()
+        #endif
     }
 
     /// The tight tracking for big display numbers (≈ -0.04em). Apply alongside
@@ -34,13 +47,27 @@ public enum StrandFont {
         -size * 0.04
     }
 
-    /// A Helvetica-Neue numeric style at an arbitrary size/weight — the house
+    /// A numeric style at an arbitrary size/weight — the house
     /// numeral. Tabular so live values align. Use anywhere a score/number is shown.
     public static func rounded(_ size: CGFloat, weight: Font.Weight = .bold) -> Font {
+        #if os(iOS)
+        Font.custom(manropeName(weight), size: size).monospacedDigit()
+        #else
         roundedSystem(size, weight: weight).monospacedDigit()
+        #endif
     }
 
-    /// Title1 28 / Bold. Scales with Dynamic Type.
+    /// The large title scale; the iPhone face is Manrope ExtraBold. Scales with Dynamic Type.
+    #if os(iOS)
+    public static let title1 = Font.custom("Manrope-ExtraBold", size: 34, relativeTo: .largeTitle)
+    public static let title2 = Font.custom("Manrope-Bold", size: 23, relativeTo: .title2)
+    public static let headline = Font.custom("Manrope-Bold", size: 17, relativeTo: .headline)
+    public static let body = Font.custom("Manrope-Regular", size: 16, relativeTo: .body)
+    public static let subhead = Font.custom("Manrope-Medium", size: 14, relativeTo: .subheadline)
+    public static let caption = Font.custom("Manrope-Medium", size: 12, relativeTo: .caption)
+    public static let footnote = Font.custom("Manrope-Regular", size: 11, relativeTo: .footnote)
+    public static let overline = Font.custom("Manrope-Bold", size: 10.5, relativeTo: .caption2)
+    #else
     public static let title1 = Font.system(.title, design: .rounded, weight: .bold)
 
     /// Title2 22 / Semibold. Scales with Dynamic Type.
@@ -68,16 +95,22 @@ public enum StrandFont {
     /// used there WITHOUT the tracking — that is sentence case, not an overline, and the letter-spacing
     /// is what makes an overline read as one.
     public static let overline = Font.system(.caption2, design: .rounded, weight: .semibold)
+    #endif
 
-    /// `overline` at a custom point size — same Helvetica face, weight and Dynamic-Type scaling
+    /// `overline` at a custom point size — same face, weight and Dynamic-Type scaling
     /// (relativeTo `.caption2`), just smaller. Passing 11 returns exactly `.overline`. Lets a caller
     /// shrink an ALL-CAPS label to fit a small container without losing accessibility text-scaling.
     public static func overlineScaled(_ size: CGFloat) -> Font {
         #if canImport(UIKit)
         let base = UIFont.systemFont(ofSize: size, weight: .semibold)
+        #if os(iOS)
+        let face = UIFont(name: "Manrope-Bold", size: size) ?? base
+        return Font(UIFontMetrics(forTextStyle: .caption2).scaledFont(for: face))
+        #else
         let descriptor = base.fontDescriptor.withDesign(.rounded) ?? base.fontDescriptor
         let rounded = UIFont(descriptor: descriptor, size: size)
         return Font(UIFontMetrics(forTextStyle: .caption2).scaledFont(for: rounded))
+        #endif
         #elseif canImport(AppKit)
         let base = NSFont.systemFont(ofSize: size, weight: .semibold)
         guard let descriptor = base.fontDescriptor.withDesign(.rounded),
@@ -95,18 +128,26 @@ public enum StrandFont {
 
     // MARK: Numeric variants (tabular digits)
 
-    /// A numeric style at an arbitrary size/weight, for live values — Helvetica
-    /// Neue, tabular digits. This is the tile/value numeral.
+    /// A numeric style at an arbitrary size/weight, for live values, with tabular digits.
     public static func number(_ size: CGFloat, weight: Font.Weight = .semibold) -> Font {
+        #if os(iOS)
+        Font.custom(manropeName(weight), size: size).monospacedDigit()
+        #else
         roundedSystem(size, weight: weight).monospacedDigit()
+        #endif
     }
 
-    /// Helvetica-Neue body number — for inline live values that should align. Scales with Dynamic
+    /// Body number — for inline live values that should align. Scales with Dynamic
     /// Type alongside its sibling `body`/`caption` labels so a value and its label stay matched.
+    #if os(iOS)
+    public static let bodyNumber = Font.custom("Manrope-Medium", size: 16, relativeTo: .body).monospacedDigit()
+    public static let captionNumber = Font.custom("Manrope-Medium", size: 12, relativeTo: .caption).monospacedDigit()
+    #else
     public static let bodyNumber = Font.system(.body, design: .rounded, weight: .medium).monospacedDigit()
 
     /// Helvetica-Neue caption number — for small live values (sparklines, chips). Scales with Dynamic Type.
     public static let captionNumber = Font.system(.caption, design: .rounded, weight: .medium).monospacedDigit()
+    #endif
 
     /// Mono at an arbitrary size.
     public static func mono(_ size: CGFloat, weight: Font.Weight = .regular) -> Font {

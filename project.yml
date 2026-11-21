@@ -243,6 +243,14 @@ targets:
         CFBundleDisplayName: NOOP
         CFBundleShortVersionString: "$(MARKETING_VERSION)"
         CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
+        # The iPhone's Manrope type system lives in StrandiOS/Resources/Fonts. Each weight has
+        # a registered PostScript name so SwiftUI can use the real face instead of synthesizing it.
+        UIAppFonts:
+          - manrope-regular.ttf
+          - manrope-medium.ttf
+          - manrope-semibold.ttf
+          - manrope-bold.ttf
+          - manrope-extrabold.ttf
         # Surfaces APP_GROUP_ID to runtime (WidgetSnapshot.suiteName) so the App Group id isn't
         # hard-coded in Swift; stays in sync with the application-groups entitlement (both $(APP_GROUP_ID)).
         AppGroupIdentifier: "$(APP_GROUP_ID)"

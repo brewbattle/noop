@@ -580,8 +580,8 @@ struct LiquidScoreGauge: View {
     @State private var shown: Double = 0
 
     private var frac: Double? { score.map { max(0, min(1, $0 / maxValue)) } }
-    private var centerFont: Font { StrandFont.rounded(diameter * 26 / Self.homeHeroDiameter) }
-    private var captionFont: Font { StrandFont.rounded(diameter * 0.085, weight: .medium) }
+    private var centerFont: Font { StrandFont.number(diameter * 26 / Self.homeHeroDiameter, weight: .bold) }
+    private var captionFont: Font { StrandFont.number(diameter * 0.085, weight: .medium) }
 
     var body: some View {
         ZStack {
